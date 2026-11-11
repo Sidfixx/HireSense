@@ -1,0 +1,305 @@
+
+@import "tailwindcss";
+
+/* ==========================================
+   HIRESENSE — DESIGN SYSTEM
+========================================== */
+
+:root {
+  font-family: Inter, Arial, sans-serif;
+
+  --red: #e5242a;
+  --red-light: #f04449;
+  --red-dark: #bd1c23;
+
+  --black: #171717;
+  --charcoal: #14121e;
+
+  --white: #ffffff;
+  --off-white: #f7f6f4;
+
+  --text: #242424;
+  --muted: #707070;
+  --border: #e5e3df;
+}
+
+/* ==========================================
+   GLOBAL STYLES
+========================================== */
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 20px;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background: var(--white);
+  color: var(--text);
+  font-family: Inter, Arial, sans-serif;
+  line-height: 1.6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* ==========================================
+   TYPOGRAPHY
+========================================== */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 700;
+  letter-spacing: -0.035em;
+}
+
+p {
+  margin-top: 0;
+}
+
+/* ==========================================
+   CONTINUOUS NAVIGATION + HERO BACKGROUND
+========================================== */
+
+.hero-shell {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+
+  background:
+    radial-gradient(
+      ellipse at 85% 15%,
+      rgba(190, 38, 37, 0.30),
+      transparent 48%
+    ),
+    radial-gradient(
+      ellipse at 45% 100%,
+      rgba(115, 24, 34, 0.28),
+      transparent 55%
+    ),
+    linear-gradient(
+      110deg,
+      #14121e 0%,
+      #30151f 38%,
+      #571b20 68%,
+      #8b211c 100%
+    );
+}
+
+/* Hero section remains transparent */
+
+.hero-section {
+  position: relative;
+  background: transparent;
+}
+
+/* Hero typography */
+
+.hero-section h1 {
+  color: #ffffff;
+}
+
+.hero-section p {
+  color: #e5dadd;
+}
+
+/* ==========================================
+   BUTTON SYSTEM
+========================================== */
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  padding: 13px 25px;
+
+  background: var(--red);
+  color: var(--white);
+
+  border: 1px solid var(--red);
+  border-radius: 4px;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.btn-primary:hover {
+  background: var(--red-dark);
+  border-color: var(--red-dark);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  padding: 13px 25px;
+
+  background: transparent;
+  color: var(--black);
+
+  border: 1px solid var(--border);
+  border-radius: 4px;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/* ==========================================
+   CARD SYSTEM
+========================================== */
+
+.card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.card:hover {
+  border-color: #d6b4b4;
+  box-shadow: 0 8px 24px rgba(23, 23, 23, 0.04);
+}
+
+/* ==========================================
+   INPUTS
+========================================== */
+
+input,
+textarea,
+select {
+  color: var(--text);
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: 2px solid rgba(229, 36, 42, 0.18);
+  border-color: var(--red);
+}
+
+/* ==========================================
+   LIGHT SECTIONS
+========================================== */
+
+#features,
+#portals {
+  background-color: var(--off-white);
+}
+
+#about {
+  background-color: var(--white);
+}
+
+/* ==========================================
+   FOOTER
+========================================== */
+
+footer {
+  background: var(--black);
+  color: var(--white);
+}
+
+/* ==========================================
+   SCROLLBAR
+========================================== */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f5f5f3;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c9c7c2;
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #777777;
+}
+
+/* ==========================================
+   ACCESSIBILITY
+========================================== */
+
+::selection {
+  background: var(--red);
+  color: var(--white);
+}
+
+:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 3px;
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width: 768px) {
+  .hero-shell {
+    background:
+      radial-gradient(
+        ellipse at 90% 10%,
+        rgba(190, 38, 37, 0.30),
+        transparent 55%
+      ),
+      linear-gradient(
+        140deg,
+        #14121e,
+        #571b20
+      );
+  }
+}
