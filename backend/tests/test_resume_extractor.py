@@ -1,5 +1,8 @@
 
-from app.services.structured_extractor import extract_resume_data
+from app.services.structured_extractor import (
+    extract_resume_data,
+    extract_sections,
+)
 
 
 SAMPLE_RESUME = """
@@ -124,3 +127,51 @@ def test_missing_sections_do_not_crash():
     assert data.experience == []
     assert data.projects == []
     assert data.certifications == []
+
+
+def test_alternative_section_headings():
+    text = """
+    AARAV SHARMA
+
+    ACADEMIC QUALIFICATIONS
+    Bachelor of Technology — Example University
+
+    EMPLOYMENT HISTORY
+    Software Engineer — Example Company
+
+    SELECTED PROJECTS
+    Resume Screening System | Python, FastAPI
+
+    PROFESSIONAL CERTIFICATIONS
+    Python Certification — Example Academy
+    """
+
+    sections = extract_sections(text)
+
+    assert "Bachelor of Technology" in " ".join(
+        sections["education"]
+    )
+    assert "Software Engineer" in " ".join(
+        sections["experience"]
+    )
+    assert "Resume Screening System" in " ".join(
+        sections["projects"]
+    )
+    assert "Python Certification" in " ".join(
+        sections["certifications"]
+    )
+
+
+def test_section_headings_are_case_insensitive():
+    text = """
+    academic qualifications
+    Bachelor of Technology — Example University
+
+    employment history
+    Developer — Example Company
+    """
+
+    sections = extract_sections(text)
+
+    assert "education" in sections
+    assert "experience" in sections
