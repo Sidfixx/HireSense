@@ -1,11 +1,15 @@
 
 import re
 
-from app.schemas.resume import ResumeData
+from app.schemas.resume import (
+    ResumeData,
+    Education,
+    WorkExperience,
+    Project,
+    Certification,
+)
 
 
-# Initial skill dictionary.
-# We will expand this as HireSense develops.
 SKILL_KEYWORDS = [
     "python",
     "java",
@@ -40,41 +44,49 @@ SKILL_KEYWORDS = [
 ]
 
 
-def extract_email(text: str):
-    """Find an email address in resume text."""
+SECTION_ALIASES = {
+    "education": {"EDUCATION", "ACADEMIC BACKGROUND"},
+    "experience": {
+        "EXPERIENCE",
+        "WORK EXPERIENCE",
+        "PROFESSIONAL EXPERIENCE",
+        "INTERNSHIPS",
+    },
+    "projects": {"PROJECTS", "PERSONAL PROJECTS", "ACADEMIC PROJECTS"},
+    "certifications": {
+        "CERTIFICATIONS",
+        "CERTIFICATES",
+        "LICENSES AND CERTIFICATIONS",
+    },
+    "skills": {"SKILLS", "TECHNICAL SKILLS", "CORE SKILLS"},
+}
 
+
+def clean_line(line: str) -> str:
+    """Remove common bullet symbols and extra whitespace."""
+    return re.sub(r"^[\s•\-*]+", "", line).strip()
+
+
+def extract_email(text: str):
     match = re.search(
         r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b",
         text,
     )
-
     return match.group(0) if match else None
 
 
 def extract_phone(text: str):
-    """Find a possible phone number."""
-
     match = re.search(
         r"(?<!\w)(?:\+?\d{1,3}[-.\s]?)?"
         r"(?:\d[-.\s]?){9,12}\d(?!\w)",
         text,
     )
-
     return match.group(0).strip() if match else None
 
 
 def extract_candidate_name(text: str):
-    """
-    Basic name extraction.
-    Uses the first few non-empty lines as candidates.
-    This is a heuristic, not guaranteed identification.
-    """
-
-    lines = [
-        line.strip()
-        for line in text.splitlines()
-        if line.strip()
-    ]
+    """Heuristic name extraction from the opening lines."""
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
 
     for line in lines[:5]:
         cleaned = re.sub(r"\s+", " ", line)
@@ -90,8 +102,7 @@ def extract_candidate_name(text: str):
 
 
 def extract_skills(text: str):
-    """Identify skills from the predefined skill dictionary."""
-
+    """Identify skills using a predefined keyword dictionary."""
     normalized_text = text.lower()
     found_skills = []
 
@@ -104,12 +115,193 @@ def extract_skills(text: str):
     return found_skills
 
 
+def extract_sections(text: str):
+    """Split resume text into sections using common heading names."""
+    sections = {}
+    current_section = None
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+
+        if not line:
+            continue
+
+        heading = re.sub(r"[:\s]+$", "", line).upper()
+
+        matched_section = None
+
+        for section_name, aliases in SECTION_ALIASES.items():
+            if heading in aliases:
+                matched_section = section_name
+                break
+
+        if matched_section:
+            current_section = matched_section
+            sections.setdefault(current_section, [])
+            continue
+
+        if current_section:
+            sections[current_section].append(clean_line(line))
+
+    return sections
+
+
+def extract_year(text: str):
+    """Find a likely graduation year."""
+    match = re.search(r"\b(?:19|20)\d{2}\b", text)
+    return int(match.group(0)) if match else None
+
+
+def extract_education(section_lines: list[str]):
+    education = []
+
+    content = " ".join(line for line in section_lines if line.strip())
+
+    if not content:
+        return education
+
+    # Split entries when multiple degree descriptions are present.
+    entries = re.split(r"(?=(?:Bachelor|Master|B\.?Tech|M\.?Tech|B\.?Sc|M\.?Sc|Ph\.?D))",
+                       content, flags=re.IGNORECASE)
+
+    for entry in entries:
+        entry = entry.strip()
+
+        if not entry:
+            continue
+
+        parts = re.split(r"\s+[—–-]\s+", entry, maxsplit=1)
+
+        degree = parts[0].strip(" ,")
+        institution = parts[1].strip(" ,") if len(parts) > 1 else None
+
+        education.append(
+            Education(
+                degree=degree or None,
+                institution=institution,
+                graduation_year=extract_year(entry),
+            )
+        )
+
+    return education
+
+
+def extract_experience(section_lines: list[str]):
+    experience = []
+    current = None
+
+    date_pattern = re.compile(
+        r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)?"
+        r"\s*\d{0,2}\s*,?\s*(?:19|20)\d{2}\b",
+        re.IGNORECASE,
+    )
+
+    for line in section_lines:
+        if not line:
+            continue
+
+        # A line with a separator usually introduces a role and company.
+        if " — " in line or " – " in line or " - " in line:
+            if current:
+                experience.append(current)
+
+            parts = re.split(r"\s+[—–-]\s+", line, maxsplit=1)
+
+            current = {
+                "job_title": parts[0].strip(),
+                "company": parts[1].strip() if len(parts) > 1 else None,
+                "duration": None,
+                "description": "",
+            }
+
+        elif current and date_pattern.search(line):
+            current["duration"] = line
+
+        elif current:
+            current["description"] += (
+                (" " if current["description"] else "") + line
+            )
+
+    if current:
+        experience.append(current)
+
+    return [
+        WorkExperience(**item)
+        for item in experience
+    ]
+
+
+def extract_projects(section_lines: list[str]):
+    projects = []
+    current = None
+
+    for line in section_lines:
+        if not line:
+            continue
+
+        # Project title lines in this format: Name | Technology 1, Technology 2
+        if " | " in line:
+            if current:
+                projects.append(current)
+
+            name, technologies = line.split(" | ", 1)
+
+            current = {
+                "name": name.strip(),
+                "description": "",
+                "technologies": [
+                    tech.strip()
+                    for tech in technologies.split(",")
+                    if tech.strip()
+                ],
+            }
+
+        elif current:
+            current["description"] += (
+                (" " if current["description"] else "") + line
+            )
+
+    if current:
+        projects.append(current)
+
+    return [Project(**item) for item in projects]
+
+
+def extract_certifications(section_lines: list[str]):
+    certifications = []
+
+    for line in section_lines:
+        if not line:
+            continue
+
+        parts = re.split(r"\s+[—–-]\s+", line, maxsplit=1)
+
+        certifications.append(
+            Certification(
+                name=parts[0].strip(),
+                issuing_organization=(
+                    parts[1].strip() if len(parts) > 1 else None
+                ),
+            )
+        )
+
+    return certifications
+
+
 def extract_resume_data(text: str) -> ResumeData:
-    """Convert raw resume text into a structured profile."""
+    """Convert raw resume text into a structured candidate profile."""
+
+    sections = extract_sections(text)
 
     return ResumeData(
         candidate_name=extract_candidate_name(text),
         email=extract_email(text),
         phone=extract_phone(text),
         skills=extract_skills(text),
+        education=extract_education(sections.get("education", [])),
+        experience=extract_experience(sections.get("experience", [])),
+        projects=extract_projects(sections.get("projects", [])),
+        certifications=extract_certifications(
+            sections.get("certifications", [])
+        ),
     )
