@@ -1,6 +1,7 @@
 
+from typing import Optional, Literal
+
 from pydantic import BaseModel, Field, EmailStr
-from typing import Optional
 
 
 class Education(BaseModel):
@@ -27,12 +28,29 @@ class Certification(BaseModel):
     issuing_organization: Optional[str] = None
 
 
+class SkillEvidence(BaseModel):
+    skill: str
+
+    evidence_type: Literal[
+        "skills_section",
+        "project",
+        "experience",
+        "other",
+    ]
+
+    evidence_text: str
+
+
 class ResumeData(BaseModel):
     candidate_name: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
 
     skills: list[str] = Field(default_factory=list)
+
+    skill_evidence: list[SkillEvidence] = Field(
+        default_factory=list
+    )
 
     education: list[Education] = Field(default_factory=list)
 

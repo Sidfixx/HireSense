@@ -25,11 +25,27 @@ export interface Certification {
   issuing_organization: string | null;
 }
 
+export type SkillEvidenceType =
+  | "skills_section"
+  | "project"
+  | "experience"
+  | "other";
+
+export interface SkillEvidence {
+  skill: string;
+  evidence_type: SkillEvidenceType;
+  evidence_text: string;
+}
+
 export interface ExtractedResumeProfile {
   candidate_name: string | null;
   email: string | null;
   phone: string | null;
+
   skills: string[];
+
+  skill_evidence: SkillEvidence[];
+
   education: Education[];
   experience: WorkExperience[];
   projects: Project[];
@@ -55,9 +71,6 @@ export async function uploadResume(
     "/resumes/upload",
     formData,
     {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
       timeout: 60000,
     }
   );

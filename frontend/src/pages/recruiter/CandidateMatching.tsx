@@ -12,6 +12,7 @@ import {
   UserRound,
   XCircle,
   Upload,
+  SearchCheck,
 } from "lucide-react";
 
 import {
@@ -22,6 +23,8 @@ import {
 import {
   uploadResume,
   type ExtractedResumeProfile,
+  type SkillEvidence,
+  type SkillEvidenceType,
 } from "../../services/resumeService";
 
 const inputClass =
@@ -92,6 +95,45 @@ function SkillGroup({ title, skills, type }: SkillGroupProps) {
   );
 }
 
+function getEvidenceLabel(type: SkillEvidenceType): string {
+  const labels: Record<SkillEvidenceType, string> = {
+    skills_section: "Skills section",
+    project: "Project",
+    experience: "Work experience",
+    other: "Other resume content",
+  };
+
+  return labels[type];
+}
+
+function getEvidenceStyle(type: SkillEvidenceType): string {
+  const styles: Record<SkillEvidenceType, string> = {
+    skills_section: "border-blue-200 bg-blue-50 text-blue-800",
+    project: "border-purple-200 bg-purple-50 text-purple-800",
+    experience: "border-green-200 bg-green-50 text-green-800",
+    other: "border-gray-200 bg-gray-50 text-gray-700",
+  };
+
+  return styles[type];
+}
+
+function groupSkillEvidence(evidence: SkillEvidence[]) {
+  return evidence.reduce<Record<string, SkillEvidence[]>>(
+    (groups, item) => {
+      const key = item.skill.toLowerCase();
+
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+
+      groups[key].push(item);
+
+      return groups;
+    },
+    {}
+  );
+}
+
 function CandidateMatching() {
   // Candidate information
   const [candidateName, setCandidateName] = useState("");
@@ -104,7 +146,7 @@ function CandidateMatching() {
   const [requiredSkills, setRequiredSkills] = useState("");
   const [preferredSkills, setPreferredSkills] = useState("");
 
-  // Resume upload state
+  // Resume upload
   const [resumeProfile, setResumeProfile] =
     useState<ExtractedResumeProfile | null>(null);
 
@@ -112,12 +154,11 @@ function CandidateMatching() {
   const [uploadingResume, setUploadingResume] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
-  // Matching state
+  // Matching
   const [result, setResult] = useState<MatchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Handle PDF/DOCX resume upload
   async function handleResumeUpload(
     event: ChangeEvent<HTMLInputElement>
   ) {
@@ -128,24 +169,19 @@ function CandidateMatching() {
     setUploadError("");
     setError("");
     setResult(null);
+    setResumeProfile(null);
+    setResumeFileName("");
 
-    const extension = file.name
-      .split(".")
-      .pop()
-      ?.toLowerCase();
+    const extension = file.name.split(".").pop()?.toLowerCase();
 
     if (!["pdf", "docx"].includes(extension || "")) {
-      setUploadError(
-        "Only PDF and DOCX files are supported."
-      );
+      setUploadError("Only PDF and DOCX files are supported.");
       event.target.value = "";
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setUploadError(
-        "File size must not exceed 5 MB."
-      );
+      setUploadError("File size must not exceed 5 MB.");
       event.target.value = "";
       return;
     }
@@ -154,18 +190,15 @@ function CandidateMatching() {
 
     try {
       const response = await uploadResume(file);
-
       const profile = response.candidate_profile;
 
       setResumeProfile(profile);
       setResumeFileName(response.filename);
 
-      // Populate candidate information from the extracted profile.
       setCandidateName(profile.candidate_name || "");
       setCandidateEmail(profile.email || "");
       setCandidatePhone(profile.phone || "");
       setCandidateSkills(profile.skills.join(", "));
-
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const detail = err.response?.data?.detail;
@@ -186,10 +219,7 @@ function CandidateMatching() {
     }
   }
 
-  // Submit candidate and job details for matching.
-  async function handleSubmit(
-    event: FormEvent<HTMLFormElement>
-  ) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setError("");
@@ -200,16 +230,17 @@ function CandidateMatching() {
     const preferred = parseSkills(preferredSkills);
 
     if (skills.length === 0) {
-      setError(
-        "Please upload a resume or enter candidate skills."
-      );
+      setError("Please upload a resume or enter candidate skills.");
+      return;
+    }
+
+    if (!jobTitle.trim()) {
+      setError("Please enter a job title.");
       return;
     }
 
     if (required.length === 0) {
-      setError(
-        "Please enter at least one required job skill."
-      );
+      setError("Please enter at least one required job skill.");
       return;
     }
 
@@ -231,7 +262,6 @@ function CandidateMatching() {
       });
 
       setResult(match);
-
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const detail = err.response?.data?.detail;
@@ -242,14 +272,24 @@ function CandidateMatching() {
             : "Unable to calculate the match. Check that the backend is running."
         );
       } else {
-        setError(
-          "Something went wrong while calculating the match."
-        );
+        setError("Something went wrong while calculating the match.");
       }
     } finally {
       setLoading(false);
     }
   }
+
+  const evidenceGroups = resumeProfile
+    ? groupSkillEvidence(resumeProfile.skill_evidence || [])
+    : {};
+
+  const uniqueEvidenceTypes = resumeProfile
+    ? new Set(
+        (resumeProfile.skill_evidence || []).map(
+          (item) => item.evidence_type
+        )
+      ).size
+    : 0;
 
   return (
     <main className="min-h-screen bg-[#f7f6f4] text-[#242424]">
@@ -273,6 +313,7 @@ function CandidateMatching() {
           <span className="text-xs font-medium text-[#777]">
             Recruiter workspace
           </span>
+
         </div>
       </header>
 
@@ -291,7 +332,7 @@ function CandidateMatching() {
           </h1>
 
           <p className="mt-3 max-w-2xl text-sm leading-7 text-[#737373]">
-            Upload candidate resumes, extract their profiles,
+            Upload candidate resumes, extract candidate profiles,
             and compare their skills against job requirements.
           </p>
 
@@ -349,10 +390,7 @@ function CandidateMatching() {
                 >
                   {uploadingResume ? (
                     <>
-                      <Loader2
-                        size={17}
-                        className="animate-spin"
-                      />
+                      <Loader2 size={17} className="animate-spin" />
                       Processing resume...
                     </>
                   ) : (
@@ -380,24 +418,18 @@ function CandidateMatching() {
                 )}
 
                 {uploadError && (
-                  <p
-                    role="alert"
-                    className="mt-3 text-xs text-red-600"
-                  >
+                  <p role="alert" className="mt-3 text-xs text-red-600">
                     {uploadError}
                   </p>
                 )}
 
               </div>
 
-              {/* Candidate form fields */}
+              {/* Candidate fields */}
               <div className="space-y-5">
 
                 <div>
-                  <label
-                    className={labelClass}
-                    htmlFor="candidateName"
-                  >
+                  <label className={labelClass} htmlFor="candidateName">
                     Candidate name
                   </label>
 
@@ -406,17 +438,12 @@ function CandidateMatching() {
                     className={inputClass}
                     placeholder="e.g. Aarav Sharma"
                     value={candidateName}
-                    onChange={(e) =>
-                      setCandidateName(e.target.value)
-                    }
+                    onChange={(e) => setCandidateName(e.target.value)}
                   />
                 </div>
 
                 <div>
-                  <label
-                    className={labelClass}
-                    htmlFor="candidateEmail"
-                  >
+                  <label className={labelClass} htmlFor="candidateEmail">
                     Email address
                   </label>
 
@@ -426,17 +453,12 @@ function CandidateMatching() {
                     className={inputClass}
                     placeholder="candidate@example.com"
                     value={candidateEmail}
-                    onChange={(e) =>
-                      setCandidateEmail(e.target.value)
-                    }
+                    onChange={(e) => setCandidateEmail(e.target.value)}
                   />
                 </div>
 
                 <div>
-                  <label
-                    className={labelClass}
-                    htmlFor="candidatePhone"
-                  >
+                  <label className={labelClass} htmlFor="candidatePhone">
                     Phone number
                   </label>
 
@@ -445,17 +467,12 @@ function CandidateMatching() {
                     className={inputClass}
                     placeholder="+91 98765 43210"
                     value={candidatePhone}
-                    onChange={(e) =>
-                      setCandidatePhone(e.target.value)
-                    }
+                    onChange={(e) => setCandidatePhone(e.target.value)}
                   />
                 </div>
 
                 <div>
-                  <label
-                    className={labelClass}
-                    htmlFor="candidateSkills"
-                  >
+                  <label className={labelClass} htmlFor="candidateSkills">
                     Candidate skills
                   </label>
 
@@ -464,20 +481,17 @@ function CandidateMatching() {
                     className={`${inputClass} min-h-32 resize-y`}
                     placeholder="Python, React, FastAPI, SQL..."
                     value={candidateSkills}
-                    onChange={(e) =>
-                      setCandidateSkills(e.target.value)
-                    }
+                    onChange={(e) => setCandidateSkills(e.target.value)}
                     required
                   />
 
                   <p className="mt-2 text-xs text-[#888]">
                     Automatically populated from the resume.
-                    You can review and edit the extracted skills.
+                    Review and edit the extracted skills when needed.
                   </p>
                 </div>
 
               </div>
-
             </section>
 
             {/* Job requirements */}
@@ -504,10 +518,7 @@ function CandidateMatching() {
               <div className="space-y-5">
 
                 <div>
-                  <label
-                    className={labelClass}
-                    htmlFor="jobTitle"
-                  >
+                  <label className={labelClass} htmlFor="jobTitle">
                     Job title
                   </label>
 
@@ -516,19 +527,14 @@ function CandidateMatching() {
                     className={inputClass}
                     placeholder="e.g. Python Backend Developer"
                     value={jobTitle}
-                    onChange={(e) =>
-                      setJobTitle(e.target.value)
-                    }
+                    onChange={(e) => setJobTitle(e.target.value)}
                     required
                     minLength={2}
                   />
                 </div>
 
                 <div>
-                  <label
-                    className={labelClass}
-                    htmlFor="requiredSkills"
-                  >
+                  <label className={labelClass} htmlFor="requiredSkills">
                     Required skills
                   </label>
 
@@ -537,23 +543,18 @@ function CandidateMatching() {
                     className={`${inputClass} min-h-32 resize-y`}
                     placeholder="Python, FastAPI, PostgreSQL..."
                     value={requiredSkills}
-                    onChange={(e) =>
-                      setRequiredSkills(e.target.value)
-                    }
+                    onChange={(e) => setRequiredSkills(e.target.value)}
                     required
                   />
 
                   <p className="mt-2 text-xs text-[#888]">
-                    These carry 80% of the score when
+                    Required skills carry 80% of the score when
                     preferred skills are provided.
                   </p>
                 </div>
 
                 <div>
-                  <label
-                    className={labelClass}
-                    htmlFor="preferredSkills"
-                  >
+                  <label className={labelClass} htmlFor="preferredSkills">
                     Preferred skills
                     <span className="ml-2 font-normal text-[#999]">
                       Optional
@@ -565,24 +566,21 @@ function CandidateMatching() {
                     className={`${inputClass} min-h-24 resize-y`}
                     placeholder="Docker, AWS, Redis..."
                     value={preferredSkills}
-                    onChange={(e) =>
-                      setPreferredSkills(e.target.value)
-                    }
+                    onChange={(e) => setPreferredSkills(e.target.value)}
                   />
 
                   <p className="mt-2 text-xs text-[#888]">
-                    These carry 20% of the score when
-                    both categories are provided.
+                    Preferred skills carry 20% when both categories
+                    are provided.
                   </p>
                 </div>
 
               </div>
-
             </section>
 
           </div>
 
-          {/* Extracted resume profile preview */}
+          {/* Extracted profile */}
           {resumeProfile && (
             <section className="mt-6 rounded-md border border-[#e5e3df] bg-white p-6 shadow-sm">
 
@@ -598,32 +596,20 @@ function CandidateMatching() {
                   </h2>
 
                   <p className="text-xs text-[#888]">
-                    Review the information extracted from the uploaded document.
+                    Information extracted from the uploaded document.
                   </p>
                 </div>
 
               </div>
 
-              {/* Summary */}
+              {/* Profile summary */}
               <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
 
                 {[
-                  {
-                    label: "Skills",
-                    count: resumeProfile.skills.length,
-                  },
-                  {
-                    label: "Education",
-                    count: resumeProfile.education.length,
-                  },
-                  {
-                    label: "Experience",
-                    count: resumeProfile.experience.length,
-                  },
-                  {
-                    label: "Projects",
-                    count: resumeProfile.projects.length,
-                  },
+                  { label: "Skills", count: resumeProfile.skills.length },
+                  { label: "Education", count: resumeProfile.education.length },
+                  { label: "Experience", count: resumeProfile.experience.length },
+                  { label: "Projects", count: resumeProfile.projects.length },
                 ].map((item) => (
                   <div
                     key={item.label}
@@ -642,7 +628,7 @@ function CandidateMatching() {
               </div>
 
               {/* Extracted skills */}
-              <div className="mb-6">
+              <div className="mb-8">
                 <h3 className="mb-3 text-sm font-semibold">
                   Extracted skills
                 </h3>
@@ -665,15 +651,157 @@ function CandidateMatching() {
                 </div>
               </div>
 
+              {/* Skill evidence analysis */}
+              <div className="mb-8 border-t border-[#eee] pt-7">
+
+                <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <SearchCheck size={19} className="text-[#e5242a]" />
+
+                      <h3 className="text-lg font-bold text-[#222]">
+                        Skill evidence analysis
+                      </h3>
+                    </div>
+
+                    <p className="mt-2 text-xs leading-6 text-[#777]">
+                      Review where each extracted skill appears in
+                      the candidate's resume.
+                    </p>
+                  </div>
+
+                  <div className="rounded-md bg-[#f7f6f4] px-4 py-3">
+                    <p className="text-xs text-[#777]">
+                      Evidence source types
+                    </p>
+
+                    <p className="mt-1 text-xl font-bold text-[#222]">
+                      {uniqueEvidenceTypes} / 4
+                    </p>
+                  </div>
+
+                </div>
+
+                {/* Evidence legend */}
+                <div className="mb-5 flex flex-wrap gap-2">
+
+                  {(
+                    [
+                      "skills_section",
+                      "project",
+                      "experience",
+                      "other",
+                    ] as SkillEvidenceType[]
+                  ).map((type) => (
+                    <span
+                      key={type}
+                      className={`rounded-md border px-3 py-1 text-xs font-medium ${getEvidenceStyle(type)}`}
+                    >
+                      {getEvidenceLabel(type)}
+                    </span>
+                  ))}
+
+                </div>
+
+                {/* Evidence grouped by skill */}
+                {Object.keys(evidenceGroups).length > 0 ? (
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+
+                    {Object.entries(evidenceGroups).map(
+                      ([skill, records]) => (
+
+                        <div
+                          key={skill}
+                          className="rounded-md border border-[#e9e6e1] p-4"
+                        >
+
+                          <div className="mb-4 flex items-center justify-between">
+
+                            <h4 className="font-semibold capitalize text-[#222]">
+                              {skill}
+                            </h4>
+
+                            <span className="text-xs text-[#888]">
+                              {records.length}{" "}
+                              {records.length === 1 ? "mention" : "mentions"}
+                            </span>
+
+                          </div>
+
+                          <div className="space-y-3">
+
+                            {records.map((record, index) => (
+
+                              <div
+                                key={`${skill}-${record.evidence_type}-${index}`}
+                                className="border-l-2 border-[#e5e3df] pl-3"
+                              >
+
+                                <span
+                                  className={`inline-block rounded border px-2 py-1 text-[10px] font-semibold ${getEvidenceStyle(record.evidence_type)}`}
+                                >
+                                  {getEvidenceLabel(record.evidence_type)}
+                                </span>
+
+                                <p className="mt-2 text-xs leading-6 text-[#666]">
+                                  "{record.evidence_text}"
+                                </p>
+
+                              </div>
+
+                            ))}
+
+                          </div>
+
+                        </div>
+
+                      )
+                    )}
+
+                  </div>
+
+                ) : (
+
+                  <div className="rounded-md border border-dashed border-[#ddd] p-6 text-center">
+
+                    <p className="text-sm font-medium text-[#555]">
+                      No supporting skill mentions were identified.
+                    </p>
+
+                    <p className="mt-2 text-xs text-[#888]">
+                      The parser may not recognise the resume's
+                      wording or section layout.
+                    </p>
+
+                  </div>
+
+                )}
+
+                <div className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-xs leading-6 text-amber-800">
+                  <strong>Important:</strong> This report identifies
+                  mentions and context in the resume. It does not
+                  independently verify the candidate's proficiency.
+                  Recruiters should assess important skills through
+                  appropriate technical assessments.
+                </div>
+
+              </div>
+
               {/* Education */}
               <div className="mb-6">
+
                 <h3 className="mb-3 text-sm font-semibold">
                   Education
                 </h3>
 
                 {resumeProfile.education.length > 0 ? (
+
                   <div className="space-y-3">
+
                     {resumeProfile.education.map((item, index) => (
+
                       <div
                         key={`education-${index}`}
                         className="rounded-md border border-[#eee] p-4"
@@ -692,24 +820,32 @@ function CandidateMatching() {
                           </p>
                         )}
                       </div>
+
                     ))}
+
                   </div>
+
                 ) : (
                   <p className="text-xs text-[#888]">
                     No education entries were identified.
                   </p>
                 )}
+
               </div>
 
               {/* Experience */}
               <div className="mb-6">
+
                 <h3 className="mb-3 text-sm font-semibold">
                   Work experience
                 </h3>
 
                 {resumeProfile.experience.length > 0 ? (
+
                   <div className="space-y-3">
+
                     {resumeProfile.experience.map((item, index) => (
+
                       <div
                         key={`experience-${index}`}
                         className="rounded-md border border-[#eee] p-4"
@@ -734,24 +870,32 @@ function CandidateMatching() {
                           </p>
                         )}
                       </div>
+
                     ))}
+
                   </div>
+
                 ) : (
                   <p className="text-xs text-[#888]">
                     No work experience entries were identified.
                   </p>
                 )}
+
               </div>
 
               {/* Projects */}
               <div className="mb-6">
+
                 <h3 className="mb-3 text-sm font-semibold">
                   Projects
                 </h3>
 
                 {resumeProfile.projects.length > 0 ? (
+
                   <div className="space-y-3">
+
                     {resumeProfile.projects.map((item, index) => (
+
                       <div
                         key={`project-${index}`}
                         className="rounded-md border border-[#eee] p-4"
@@ -772,24 +916,32 @@ function CandidateMatching() {
                           </p>
                         )}
                       </div>
+
                     ))}
+
                   </div>
+
                 ) : (
                   <p className="text-xs text-[#888]">
                     No projects were identified.
                   </p>
                 )}
+
               </div>
 
               {/* Certifications */}
               <div>
+
                 <h3 className="mb-3 text-sm font-semibold">
                   Certifications
                 </h3>
 
                 {resumeProfile.certifications.length > 0 ? (
+
                   <div className="space-y-2">
+
                     {resumeProfile.certifications.map((item, index) => (
+
                       <div
                         key={`certification-${index}`}
                         className="rounded-md border border-[#eee] p-4"
@@ -804,26 +956,23 @@ function CandidateMatching() {
                           </p>
                         )}
                       </div>
+
                     ))}
+
                   </div>
+
                 ) : (
                   <p className="text-xs text-[#888]">
                     No certifications were identified.
                   </p>
                 )}
-              </div>
 
-              <div className="mt-6 rounded-md border border-amber-200 bg-amber-50 p-4 text-xs leading-6 text-amber-800">
-                Resume information is extracted automatically and may contain
-                errors. Review the candidate information before using it
-                for assessment. Extracted skills are candidate claims, not
-                proof of proficiency.
               </div>
 
             </section>
           )}
 
-          {/* Error messages */}
+          {/* Errors */}
           {error && (
             <div
               role="alert"
@@ -833,7 +982,7 @@ function CandidateMatching() {
             </div>
           )}
 
-          {/* Submit button */}
+          {/* Calculate matching */}
           <div className="mt-6 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
 
             <button
@@ -843,10 +992,7 @@ function CandidateMatching() {
             >
               {loading ? (
                 <>
-                  <Loader2
-                    size={17}
-                    className="animate-spin"
-                  />
+                  <Loader2 size={17} className="animate-spin" />
                   Calculating match...
                 </>
               ) : (
@@ -867,6 +1013,7 @@ function CandidateMatching() {
 
         {/* Matching report */}
         {result && (
+
           <section
             aria-live="polite"
             className="mt-10 rounded-md border border-[#e5e3df] bg-white p-6 shadow-sm md:p-8"
@@ -908,6 +1055,7 @@ function CandidateMatching() {
 
               <div className="mb-2 flex justify-between text-xs text-[#777]">
                 <span>Skill coverage</span>
+
                 <span>
                   {result.overall_match_score.toFixed(2)}%
                 </span>
