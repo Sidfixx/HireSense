@@ -1,4 +1,3 @@
-
 import re
 
 from app.schemas.resume import (
@@ -10,83 +9,57 @@ from app.schemas.resume import (
 )
 
 
-# Skills recognised by the initial keyword-based extractor.
 SKILL_KEYWORDS = [
-    "python",
-    "java",
-    "c++",
-    "javascript",
-    "typescript",
-    "react",
-    "node.js",
-    "fastapi",
-    "django",
-    "sql",
-    "postgresql",
-    "mongodb",
-    "machine learning",
-    "deep learning",
-    "artificial intelligence",
-    "natural language processing",
-    "computer vision",
-    "tensorflow",
-    "pytorch",
-    "scikit-learn",
-    "pandas",
-    "numpy",
-    "data analysis",
-    "data visualization",
-    "git",
-    "docker",
-    "aws",
-    "linux",
-    "html",
-    "css",
+    "python", "java", "c++", "javascript", "typescript", "react",
+    "node.js", "fastapi", "django", "sql", "postgresql", "mongodb",
+    "machine learning", "deep learning", "artificial intelligence",
+    "natural language processing", "computer vision", "tensorflow",
+    "pytorch", "scikit-learn", "pandas", "numpy", "data analysis",
+    "data visualization", "git", "docker", "aws", "linux", "html", "css",
 ]
 
 
-# Different resume headings mapped to standard section names.
 SECTION_ALIASES = {
     "education": {
-        "EDUCATION",
-        "ACADEMIC BACKGROUND",
-        "ACADEMIC QUALIFICATIONS",
-        "EDUCATIONAL QUALIFICATIONS",
-        "EDUCATION DETAILS",
+        "EDUCATION", "ACADEMIC BACKGROUND", "ACADEMIC QUALIFICATIONS",
+        "EDUCATIONAL QUALIFICATIONS", "EDUCATION DETAILS",
     },
     "experience": {
-        "EXPERIENCE",
-        "WORK EXPERIENCE",
-        "PROFESSIONAL EXPERIENCE",
-        "EMPLOYMENT HISTORY",
-        "WORK HISTORY",
-        "INTERNSHIP EXPERIENCE",
+        "EXPERIENCE", "WORK EXPERIENCE", "PROFESSIONAL EXPERIENCE",
+        "EMPLOYMENT HISTORY", "WORK HISTORY", "INTERNSHIP EXPERIENCE",
         "INTERNSHIPS",
     },
     "projects": {
-        "PROJECTS",
-        "PERSONAL PROJECTS",
-        "ACADEMIC PROJECTS",
-        "KEY PROJECTS",
-        "SELECTED PROJECTS",
-        "PROJECT EXPERIENCE",
+        "PROJECTS", "PERSONAL PROJECTS", "ACADEMIC PROJECTS",
+        "KEY PROJECTS", "SELECTED PROJECTS", "PROJECT EXPERIENCE",
     },
     "certifications": {
-        "CERTIFICATIONS",
-        "CERTIFICATES",
-        "LICENSES AND CERTIFICATIONS",
-        "PROFESSIONAL CERTIFICATIONS",
-        "LICENSES",
+        "CERTIFICATIONS", "CERTIFICATES", "LICENSES AND CERTIFICATIONS",
+        "PROFESSIONAL CERTIFICATIONS", "LICENSES",
     },
     "skills": {
-        "SKILLS",
-        "TECHNICAL SKILLS",
-        "CORE SKILLS",
-        "TECHNICAL EXPERTISE",
-        "CORE COMPETENCIES",
-        "TECHNOLOGIES",
+        "SKILLS", "TECHNICAL SKILLS", "CORE SKILLS",
+        "TECHNICAL EXPERTISE", "CORE COMPETENCIES", "TECHNOLOGIES",
     },
 }
+
+
+EDUCATION_START = re.compile(
+    r"^(?:bachelor|master|doctor|ph\.?d|b\.?\s?tech|m\.?\s?tech|"
+    r"b\.?\s?e\.?|m\.?\s?e\.?|b\.?\s?sc|m\.?\s?sc|"
+    r"b\.?\s?ca|m\.?\s?ca|b\.?\s?com|m\.?\s?com|"
+    r"b\.?\s?ba|m\.?\s?ba|mba|diploma|associate|"
+    r"higher secondary|senior secondary|class\s*(?:10|12)|10th|12th)\b",
+    re.IGNORECASE,
+)
+
+DATE_RANGE = re.compile(
+    r"(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+)?"
+    r"(?:19|20)\d{2}\s*(?:-|–|—|to)\s*"
+    r"(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+)?"
+    r"(?:(?:19|20)\d{2}|present|current)",
+    re.IGNORECASE,
+)
 
 
 def clean_line(line: str) -> str:
@@ -95,55 +68,42 @@ def clean_line(line: str) -> str:
 
 
 def extract_email(text: str):
-    """Extract an email address."""
     match = re.search(
         r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b",
         text,
     )
-
     return match.group(0) if match else None
 
 
 def extract_phone(text: str):
-    """Extract a possible phone number."""
     match = re.search(
         r"(?<!\w)(?:\+?\d{1,3}[-.\s]?)?"
         r"(?:\d[-.\s]?){9,12}\d(?!\w)",
         text,
     )
-
     return match.group(0).strip() if match else None
 
 
 def extract_candidate_name(text: str):
-    """Heuristic name extraction from the opening lines."""
-    lines = [
-        line.strip()
-        for line in text.splitlines()
-        if line.strip()
-    ]
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
 
     for line in lines[:5]:
         cleaned = re.sub(r"\s+", " ", line)
-
         if (
             len(cleaned) <= 60
             and re.fullmatch(r"[A-Za-z][A-Za-z .'-]*", cleaned)
             and len(cleaned.split()) >= 2
         ):
             return cleaned
-
     return None
 
 
 def extract_skills(text: str):
-    """Identify skills using a predefined keyword dictionary."""
     normalized_text = text.lower()
     found_skills = []
 
     for skill in SKILL_KEYWORDS:
         pattern = r"(?<!\w)" + re.escape(skill) + r"(?!\w)"
-
         if re.search(pattern, normalized_text):
             found_skills.append(skill)
 
@@ -151,29 +111,23 @@ def extract_skills(text: str):
 
 
 def extract_sections(text: str):
-    """
-    Divide resume text into sections.
-
-    Recognises different heading variations and
-    normalises them into standard section names.
-    """
+    """Split resume text into recognised sections."""
     sections = {}
     current_section = None
 
     for raw_line in text.splitlines():
         line = raw_line.strip()
-
         if not line:
             continue
 
         heading = re.sub(r"[:\s]+$", "", line).upper()
-
-        matched_section = None
-
-        for section_name, aliases in SECTION_ALIASES.items():
-            if heading in aliases:
-                matched_section = section_name
-                break
+        matched_section = next(
+            (
+                name for name, aliases in SECTION_ALIASES.items()
+                if heading in aliases
+            ),
+            None,
+        )
 
         if matched_section:
             current_section = matched_section
@@ -181,179 +135,184 @@ def extract_sections(text: str):
             continue
 
         if current_section:
-            sections[current_section].append(clean_line(line))
+            cleaned = clean_line(line)
+            if cleaned:
+                sections[current_section].append(cleaned)
 
     return sections
 
 
 def extract_year(text: str):
-    """Find a likely graduation year."""
-    match = re.search(r"\b(?:19|20)\d{2}\b", text)
+    """Return the final year in a range (usually the completion year)."""
+    years = re.findall(r"\b(?:19|20)\d{2}\b", text)
+    return int(years[-1]) if years else None
 
-    return int(match.group(0)) if match else None
+
+def _split_entry_line(line: str):
+    """Split a structured heading into its first two fields."""
+    parts = re.split(r"\s+(?:\||—|–|-)\s+|\s+at\s+", line, maxsplit=1,
+                     flags=re.IGNORECASE)
+    return [part.strip(" ,|") for part in parts if part.strip(" ,|")]
 
 
 def extract_education(section_lines: list[str]):
-    """Extract education entries."""
-    education = []
+    """Extract multiple education records and attach supporting lines."""
+    entries = []
+    current = []
 
-    content = " ".join(
-        line for line in section_lines if line.strip()
-    )
-
-    if not content:
-        return education
-
-    entries = re.split(
-        r"(?=(?:Bachelor|Master|B\.?Tech|M\.?Tech|B\.?Sc|M\.?Sc|Ph\.?D))",
-        content,
-        flags=re.IGNORECASE,
-    )
-
-    for entry in entries:
-        entry = entry.strip()
-
-        if not entry:
+    for line in section_lines:
+        if not line:
             continue
 
-        parts = re.split(
-            r"\s+[—–-]\s+",
-            entry,
-            maxsplit=1,
-        )
+        if EDUCATION_START.match(line):
+            if current:
+                entries.append(current)
+            current = [line]
+        elif current:
+            current.append(line)
 
-        degree = parts[0].strip(" ,")
-        institution = (
-            parts[1].strip(" ,")
-            if len(parts) > 1
-            else None
-        )
+    if current:
+        entries.append(current)
+
+    education = []
+    for lines in entries:
+        first_line = lines[0]
+        parts = _split_entry_line(first_line)
+        degree = parts[0] if parts else first_line
+
+        institution = parts[1] if len(parts) > 1 else None
+        if institution:
+            # Remove any date/GPA field appended after the institution.
+            institution = re.split(
+                r"\s+(?:\||—|–|-)\s+|\s{2,}",
+                institution,
+                maxsplit=1,
+            )[0].strip(" ,")
+
+        full_entry = " ".join(lines)
+        if not institution:
+            for extra_line in lines[1:]:
+                candidate = extra_line.strip()
+                if (
+                    candidate
+                    and not re.search(r"\b(?:19|20)\d{2}\b", candidate)
+                    and not re.search(r"\b(?:cgpa|gpa|grade|percentage)\b",
+                                      candidate, re.IGNORECASE)
+                    and re.search(r"[A-Za-z]", candidate)
+                ):
+                    institution = candidate
+                    break
 
         education.append(
             Education(
                 degree=degree or None,
-                institution=institution,
-                graduation_year=extract_year(entry),
+                institution=institution or None,
+                graduation_year=extract_year(full_entry),
             )
         )
 
     return education
 
 
+def _is_date_line(line: str) -> bool:
+    return bool(DATE_RANGE.search(line))
+
+
 def extract_experience(section_lines: list[str]):
-    """Extract work experience entries."""
+    """Extract several roles, their dates, companies, and descriptions."""
     experience = []
     current = None
 
-    date_pattern = re.compile(
-        r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)?"
-        r"\s*\d{0,2}\s*,?\s*(?:19|20)\d{2}\b",
-        re.IGNORECASE,
-    )
+    def save_current():
+        if current and (current.get("job_title") or current.get("company")):
+            experience.append(WorkExperience(**current))
 
     for line in section_lines:
         if not line:
             continue
 
-        if " — " in line or " – " in line or " - " in line:
+        if _is_date_line(line):
             if current:
-                experience.append(current)
+                current["duration"] = line
+            continue
 
-            parts = re.split(
-                r"\s+[—–-]\s+",
-                line,
-                maxsplit=1,
-            )
+        parts = _split_entry_line(line)
+        is_header = len(parts) >= 2 and len(parts[0]) <= 100
 
+        if is_header:
+            save_current()
             current = {
-                "job_title": parts[0].strip(),
-                "company": (
-                    parts[1].strip()
-                    if len(parts) > 1
-                    else None
-                ),
+                "job_title": parts[0],
+                "company": parts[1],
                 "duration": None,
                 "description": "",
             }
-
-        elif current and date_pattern.search(line):
-            current["duration"] = line
-
         elif current:
-            current["description"] += (
-                (" " if current["description"] else "") + line
+            current["description"] = (
+                f'{current["description"]} {line}'.strip()
             )
 
-    if current:
-        experience.append(current)
-
-    return [
-        WorkExperience(**item)
-        for item in experience
-    ]
+    save_current()
+    return experience
 
 
 def extract_projects(section_lines: list[str]):
-    """Extract projects and their technologies."""
+    """Extract multiple projects, including their technology lists."""
     projects = []
     current = None
+
+    def save_current():
+        if current and current.get("name"):
+            projects.append(Project(**current))
 
     for line in section_lines:
         if not line:
             continue
 
-        if " | " in line:
-            if current:
-                projects.append(current)
+        # A pipe or dash separates a project name from its technology stack.
+        parts = _split_entry_line(line)
+        is_header = len(parts) >= 2 and len(parts[0]) <= 100
 
-            name, technologies = line.split(" | ", 1)
+        if line.lower().startswith("project:"):
+            remainder = line.split(":", 1)[1].strip()
+            parts = [remainder]
+            is_header = True
 
+        if is_header:
+            save_current()
+            tech_text = parts[1] if len(parts) > 1 else ""
+            technologies = [
+                item.strip()
+                for item in re.split(r"[,;+]", tech_text)
+                if item.strip()
+            ]
             current = {
-                "name": name.strip(),
+                "name": parts[0],
                 "description": "",
-                "technologies": [
-                    tech.strip()
-                    for tech in technologies.split(",")
-                    if tech.strip()
-                ],
+                "technologies": technologies,
             }
-
         elif current:
-            current["description"] += (
-                (" " if current["description"] else "") + line
+            current["description"] = (
+                f'{current["description"]} {line}'.strip()
             )
 
-    if current:
-        projects.append(current)
-
-    return [
-        Project(**item)
-        for item in projects
-    ]
+    save_current()
+    return projects
 
 
 def extract_certifications(section_lines: list[str]):
-    """Extract certifications and issuing organisations."""
+    """Extract one certification per line with an optional issuer."""
     certifications = []
 
     for line in section_lines:
         if not line:
             continue
 
-        parts = re.split(
-            r"\s+[—–-]\s+",
-            line,
-            maxsplit=1,
-        )
-
+        parts = _split_entry_line(line)
         certifications.append(
             Certification(
-                name=parts[0].strip(),
-                issuing_organization=(
-                    parts[1].strip()
-                    if len(parts) > 1
-                    else None
-                ),
+                name=parts[0] if parts else line,
+                issuing_organization=parts[1] if len(parts) > 1 else None,
             )
         )
 
@@ -362,7 +321,6 @@ def extract_certifications(section_lines: list[str]):
 
 def extract_resume_data(text: str) -> ResumeData:
     """Convert raw resume text into a structured candidate profile."""
-
     sections = extract_sections(text)
 
     return ResumeData(
@@ -370,15 +328,9 @@ def extract_resume_data(text: str) -> ResumeData:
         email=extract_email(text),
         phone=extract_phone(text),
         skills=extract_skills(text),
-        education=extract_education(
-            sections.get("education", [])
-        ),
-        experience=extract_experience(
-            sections.get("experience", [])
-        ),
-        projects=extract_projects(
-            sections.get("projects", [])
-        ),
+        education=extract_education(sections.get("education", [])),
+        experience=extract_experience(sections.get("experience", [])),
+        projects=extract_projects(sections.get("projects", [])),
         certifications=extract_certifications(
             sections.get("certifications", [])
         ),
