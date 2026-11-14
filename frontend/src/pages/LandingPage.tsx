@@ -1,4 +1,5 @@
 
+import { useNavigate } from "react-router-dom";
 import {
   BrainCircuit,
   FileSearch,
@@ -38,6 +39,7 @@ const features = [
 ];
 
 export default function LandingPage() {
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-white text-[#171717]">
       {/* HERO AND NAVIGATION */}
@@ -374,9 +376,13 @@ export default function LandingPage() {
                 and compare structured interview reports.
               </p>
 
-              <Button variant="primary" className="mt-7" disabled>
-                Recruiter Login
-              </Button>
+              <Button
+  variant="primary"
+  className="mt-7"
+  onClick={() => navigate("/recruiter/matching")}
+>
+  Open Recruiter Workspace
+</Button>
             </div>
 
             <div className="border border-[#e5e3df] bg-white p-9">
